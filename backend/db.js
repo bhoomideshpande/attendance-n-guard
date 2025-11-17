@@ -1,0 +1,101 @@
+const Database = require('better-sqlite3');
+const bcrypt = require('bcrypt');
+const path = require('path');
+const db = new Database(path.join(__dirname, 'data.db'));
+
+// Initialize tables
+db.prepare(`CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT,
+  email TEXT UNIQUE,
+  password TEXT,
+  role TEXT
+)`).run();
+
+db.prepare(`CREATE TABLE IF NOT EXISTS students (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  firstName TEXT,
+  lastName TEXT,
+  phone TEXT,
+  instituteCode TEXT,
+  batch TEXT,
+  photo TEXT,
+  createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+)`).run();
+
+db.prepare(`CREATE TABLE IF NOT EXISTS attendance (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  studentId INTEGER,
+  date TEXT,
+  status TEXT,
+  createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(studentId) REFERENCES students(id)
+)`).run();
+
+// Users helpers
+function getUserByEmail(email){ 
+  return db.prepare('SELECT * FROM users WHERE email=?').get(email);
+}
+function getAllUsers(){ return db.prepare('SELECT id,name,email,role FROM users').all(); }
+function createDefaultAdminIfMissing(){
+  const admin = getUserByEmail('admin@example.com');
+  if (!admin) {
+    const pwd = bcrypt.hashSync('adminpass', 10);
+    db.prepare('INSERT INTO users (name,email,password,role) VALUES (?,?,?,?)')
+      .run('Admin','admin@example.com',pwd,'admin');
+    console.log('Default admin created: admin@example.com / adminpass');
+  }
+}
+
+// Students
+function createStudent(data){
+  const stmt = db.prepare(`INSERT INTO students (firstName,lastName,phone,instituteCode,batch,photo)
+    VALUES (@firstName,@lastName,@phone,@instituteCode,@batch,@photo)`);
+  const info = stmt.run({
+    firstName: data.firstName || '',
+    lastName: data.lastName || '',
+    phone: data.phone || '',
+    instituteCode: data.instituteCode || '',
+    batch: data.batch || '',
+    photo: data.photo || ''
+  });
+  return info.lastInsertRowid;
+}
+function getAllStudents(){ return db.prepare('SELECT * FROM students ORDER BY id DESC').all(); }
+function getStudentById(id){ return db.prepare('SELECT * FROM students WHERE id=?').get(id); }
+function updateStudent(id, data){
+  const stmt = db.prepare(`UPDATE students SET firstName=@firstName,lastName=@lastName,phone=@phone,
+    instituteCode=@instituteCode,batch=@batch,photo=@photo WHERE id=@id`);
+  stmt.run({
+    id, firstName: data.firstName || '', lastName: data.lastName || '', phone: data.phone || '',
+    instituteCode: data.instituteCode || '', batch: data.batch || '', photo: data.photo || ''
+  });
+}
+function deleteStudent(id){ db.prepare('DELETE FROM students WHERE id=?').run(id); }
+
+// Attendance
+function recordAttendance({studentId, date, status}){
+  const info = db.prepare('INSERT INTO attendance (studentId,date,status) VALUES (?,?,?)')
+    .run(studentId, date, status);
+  return info.lastInsertRowid;
+}
+function getAttendance(from, to){
+  if (from && to) {
+    return db.prepare('SELECT a.*, s.firstName, s.lastName FROM attendance a JOIN students s ON s.id=a.studentId WHERE date BETWEEN ? AND ? ORDER BY date DESC')
+      .all(from, to);
+  }
+  return db.prepare('SELECT a.*, s.firstName, s.lastName FROM attendance a JOIN students s ON s.id=a.studentId ORDER BY date DESC').all();
+}
+function getAttendanceSummary(){
+  return db.prepare(`SELECT s.id, s.firstName, s.lastName,
+    SUM(CASE WHEN a.status='present' THEN 1 ELSE 0 END) as present_count,
+    COUNT(a.id) as total_records
+    FROM students s LEFT JOIN attendance a ON a.studentId=s.id
+    GROUP BY s.id ORDER BY s.id`).all();
+}
+
+module.exports = {
+  getUserByEmail, getAllUsers, createDefaultAdminIfMissing,
+  createStudent, getAllStudents, getStudentById, updateStudent, deleteStudent,
+  recordAttendance, getAttendance, getAttendanceSummary
+};
