@@ -50,7 +50,7 @@ export const FlagHeader = () => {
         </div>
       </div>
       {/* Spacer to push content below fixed header */}
-      <div className="h-[120px]"></div>
+      <div className="h-[100px]"></div>
     </>
   );
 };

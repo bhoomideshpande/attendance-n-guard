@@ -9,7 +9,6 @@ import Register from "./pages/Register";
 import AdminLogin from "./pages/AdminLogin";
 import Dashboard from "./pages/Dashboard";
 import Students from "./pages/Students";
-import StudentDetail from "./pages/StudentDetail";
 import NewStudent from "./pages/NewStudent";
 import Attendance from "./pages/Attendance";
 import Reports from "./pages/Reports";
@@ -31,7 +30,6 @@ const App = () => (
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/students" element={<Students />} />
           <Route path="/students/new" element={<NewStudent />} />
-          <Route path="/students/:id" element={<StudentDetail />} />
           <Route path="/attendance" element={<Attendance />} />
           <Route path="/reports" element={<Reports />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

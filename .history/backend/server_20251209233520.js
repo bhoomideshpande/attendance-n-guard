@@ -83,13 +83,7 @@ app.post('/api/auth/register', (req, res) => {
     res.status(201).json({ 
       message: 'Registration successful',
       token, 
-      user: { 
-        id: user.id, 
-        name: user.name, 
-        email: user.email, 
-        role: user.role,
-        instituteCode: user.instituteCode || null
-      } 
+      user: { id: user.id, name: user.name, email: user.email, role: user.role } 
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -109,16 +103,7 @@ app.post('/api/auth/login', (req, res) => {
   const ok = bcrypt.compareSync(password, user.password);
   if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
   const token = generateToken(user);
-  res.json({ 
-    token, 
-    user: { 
-      id: user.id, 
-      name: user.name, 
-      email: user.email, 
-      role: user.role,
-      instituteCode: user.instituteCode || null
-    } 
-  });
+  res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
 });
 
 // Create default admin if missing
@@ -210,12 +195,6 @@ app.get('/api/students/:id', authMiddleware, (req, res) => {
     }
     const s = db.getStudentById(id);
     if (!s) return res.status(404).json({ error: 'Student not found' });
-    
-    // Staff can only view students from their institute
-    if (req.user.role !== 'admin' && s.instituteCode !== req.user.instituteCode) {
-      return res.status(403).json({ error: 'Access denied: Student belongs to a different institute' });
-    }
-    
     res.json(s);
   } catch (error) {
     console.error('Error fetching student:', error);
@@ -226,11 +205,6 @@ app.get('/api/students/:id', authMiddleware, (req, res) => {
 app.post('/api/students', authMiddleware, upload.single('photo'), (req, res) => {
   try {
     const data = req.body;
-    
-    // Staff can only create students for their own institute
-    if (req.user.role !== 'admin' && req.user.instituteCode) {
-      data.instituteCode = req.user.instituteCode; // Override with staff's institute
-    }
     
     // Validate input
     const errors = validateStudentData(data);
@@ -260,17 +234,7 @@ app.put('/api/students/:id', authMiddleware, upload.single('photo'), (req, res) 
       return res.status(404).json({ error: 'Student not found' });
     }
     
-    // Staff can only edit students from their institute
-    if (req.user.role !== 'admin' && existing.instituteCode !== req.user.instituteCode) {
-      return res.status(403).json({ error: 'Access denied: Student belongs to a different institute' });
-    }
-    
     const data = req.body;
-    
-    // Staff cannot change a student's institute
-    if (req.user.role !== 'admin' && data.instituteCode && data.instituteCode !== req.user.instituteCode) {
-      return res.status(403).json({ error: 'Access denied: Cannot transfer student to a different institute' });
-    }
     
     // Validate input
     const errors = validateStudentData(data, true);
@@ -298,11 +262,6 @@ app.delete('/api/students/:id', authMiddleware, (req, res) => {
     const existing = db.getStudentById(id);
     if (!existing) {
       return res.status(404).json({ error: 'Student not found' });
-    }
-    
-    // Staff can only delete students from their institute
-    if (req.user.role !== 'admin' && existing.instituteCode !== req.user.instituteCode) {
-      return res.status(403).json({ error: 'Access denied: Student belongs to a different institute' });
     }
     
     db.deleteStudent(id);
@@ -386,15 +345,12 @@ app.post('/api/attendance/bulk', authMiddleware, (req, res) => {
 app.get('/api/attendance', authMiddleware, (req, res) => {
   try {
     const { from, to, date } = req.query;
-    const user = req.user;
-    // Staff can only see attendance for their institute
-    const instituteCode = user.role === 'admin' ? null : user.instituteCode;
     
     if (date) {
       if (!validateDate(date)) {
         return res.status(400).json({ error: 'Invalid date format' });
       }
-      const records = db.getAttendanceByDate(date, instituteCode);
+      const records = db.getAttendanceByDate(date);
       return res.json(records);
     }
     
@@ -405,7 +361,7 @@ app.get('/api/attendance', authMiddleware, (req, res) => {
       return res.status(400).json({ error: 'Invalid "to" date format' });
     }
     
-    const records = db.getAttendance(from, to, instituteCode);
+    const records = db.getAttendance(from, to);
     res.json(records);
   } catch (error) {
     console.error('Error fetching attendance:', error);
@@ -416,10 +372,7 @@ app.get('/api/attendance', authMiddleware, (req, res) => {
 // Reports - simple aggregated report
 app.get('/api/reports/summary', authMiddleware, (req, res) => {
   try {
-    const user = req.user;
-    // Staff can only see reports for their institute
-    const instituteCode = user.role === 'admin' ? null : user.instituteCode;
-    const report = db.getAttendanceSummary(instituteCode);
+    const report = db.getAttendanceSummary();
     res.json(report);
   } catch (error) {
     console.error('Error generating report:', error);
@@ -438,40 +391,6 @@ app.get('/api/users', authMiddleware, (req, res) => {
   } catch (error) {
     console.error('Error fetching users:', error);
     res.status(500).json({ error: 'Failed to fetch users' });
-  }
-});
-
-app.delete('/api/users/:id', authMiddleware, (req, res) => {
-  try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Access denied. Admin only.' });
-    }
-    
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ error: 'Invalid user ID' });
-    }
-    
-    const user = db.getUserById(id);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    // Prevent deleting yourself
-    if (user.email === req.user.email) {
-      return res.status(400).json({ error: 'Cannot delete your own account' });
-    }
-    
-    // Prevent deleting the default admin
-    if (user.email === 'admin@example.com') {
-      return res.status(400).json({ error: 'Cannot delete the default admin account' });
-    }
-    
-    db.deleteUser(id);
-    res.json({ ok: true, message: 'User deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting user:', error);
-    res.status(500).json({ error: 'Failed to delete user' });
   }
 });
 

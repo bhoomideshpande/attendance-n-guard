@@ -17,7 +17,6 @@ interface Student {
   instituteCode: string;
   batch: string;
   phone: string;
-  photo?: string;
 }
 
 const Students = () => {
@@ -104,54 +103,30 @@ const Students = () => {
             <CardTitle>All Students ({filteredStudents.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              </div>
-            ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Photo</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">ID</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Name</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Institute</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Batch</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Phone</th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredStudents.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="py-8 text-center text-muted-foreground">
-                        No students found. Add your first student!
-                      </td>
-                    </tr>
-                  ) : (
-                  filteredStudents.map((student) => (
+                  {filteredStudents.map((student) => (
                     <tr key={student.id} className="border-b hover:bg-muted/50 transition-colors">
-                      <td className="py-3 px-4">
-                        {student.photo ? (
-                          <img 
-                            src={`http://localhost:4000${student.photo}`} 
-                            alt={`${student.firstName} ${student.lastName}`}
-                            className="w-10 h-10 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                            <span className="text-primary font-semibold text-sm">
-                              {student.firstName[0]}{student.lastName[0]}
-                            </span>
-                          </div>
-                        )}
-                      </td>
                       <td className="py-3 px-4 font-mono text-sm">{student.id}</td>
                       <td className="py-3 px-4 font-medium">{student.firstName} {student.lastName}</td>
-                      <td className="py-3 px-4 text-sm text-muted-foreground">{student.instituteCode}</td>
+                      <td className="py-3 px-4 text-sm text-muted-foreground">{student.institute}</td>
                       <td className="py-3 px-4 text-sm">{student.batch}</td>
-                      <td className="py-3 px-4 text-sm">{student.phone}</td>
+                      <td className="py-3 px-4">
+                        <Badge variant={student.status === "Active" ? "default" : "secondary"}>
+                          {student.status}
+                        </Badge>
+                      </td>
                       <td className="py-3 px-4">
                         <div className="flex gap-2">
                           <Button
@@ -171,12 +146,10 @@ const Students = () => {
                         </div>
                       </td>
                     </tr>
-                  ))
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>
-            )}
           </CardContent>
         </Card>
       </main>

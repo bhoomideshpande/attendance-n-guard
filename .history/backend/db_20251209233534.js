@@ -39,15 +39,7 @@ db.prepare(`CREATE TABLE IF NOT EXISTS attendance (
 function getUserByEmail(email){ 
   return db.prepare('SELECT * FROM users WHERE email=?').get(email);
 }
-function getAllUsers(){ return db.prepare('SELECT id,name,email,role,instituteCode FROM users').all(); }
-
-function getUserById(id) {
-  return db.prepare('SELECT id,name,email,role,instituteCode FROM users WHERE id=?').get(id);
-}
-
-function deleteUser(id) {
-  return db.prepare('DELETE FROM users WHERE id=?').run(id);
-}
+function getAllUsers(){ return db.prepare('SELECT id,name,email,role FROM users').all(); }
 
 function createUser({ name, email, password, phone, instituteCode, role = 'user' }) {
   const hashedPassword = bcrypt.hashSync(password, 10);
@@ -113,40 +105,20 @@ function deleteAttendanceForStudentDate(studentId, date) {
   db.prepare('DELETE FROM attendance WHERE studentId = ? AND date = ?').run(studentId, date);
 }
 
-function getAttendanceByDate(date, instituteCode = null) {
-  if (instituteCode) {
-    return db.prepare('SELECT a.*, s.firstName, s.lastName, s.instituteCode FROM attendance a JOIN students s ON s.id=a.studentId WHERE date = ? AND s.instituteCode = ? ORDER BY s.firstName')
-      .all(date, instituteCode);
-  }
-  return db.prepare('SELECT a.*, s.firstName, s.lastName, s.instituteCode FROM attendance a JOIN students s ON s.id=a.studentId WHERE date = ? ORDER BY s.firstName')
+function getAttendanceByDate(date) {
+  return db.prepare('SELECT a.*, s.firstName, s.lastName FROM attendance a JOIN students s ON s.id=a.studentId WHERE date = ? ORDER BY s.firstName')
     .all(date);
 }
 
-function getAttendance(from, to, instituteCode = null){
-  if (instituteCode) {
-    if (from && to) {
-      return db.prepare('SELECT a.*, s.firstName, s.lastName, s.instituteCode FROM attendance a JOIN students s ON s.id=a.studentId WHERE date BETWEEN ? AND ? AND s.instituteCode = ? ORDER BY date DESC')
-        .all(from, to, instituteCode);
-    }
-    return db.prepare('SELECT a.*, s.firstName, s.lastName, s.instituteCode FROM attendance a JOIN students s ON s.id=a.studentId WHERE s.instituteCode = ? ORDER BY date DESC').all(instituteCode);
-  }
+function getAttendance(from, to){
   if (from && to) {
-    return db.prepare('SELECT a.*, s.firstName, s.lastName, s.instituteCode FROM attendance a JOIN students s ON s.id=a.studentId WHERE date BETWEEN ? AND ? ORDER BY date DESC')
+    return db.prepare('SELECT a.*, s.firstName, s.lastName FROM attendance a JOIN students s ON s.id=a.studentId WHERE date BETWEEN ? AND ? ORDER BY date DESC')
       .all(from, to);
   }
-  return db.prepare('SELECT a.*, s.firstName, s.lastName, s.instituteCode FROM attendance a JOIN students s ON s.id=a.studentId ORDER BY date DESC').all();
+  return db.prepare('SELECT a.*, s.firstName, s.lastName FROM attendance a JOIN students s ON s.id=a.studentId ORDER BY date DESC').all();
 }
-
-function getAttendanceSummary(instituteCode = null){
-  if (instituteCode) {
-    return db.prepare(`SELECT s.id, s.firstName, s.lastName, s.instituteCode,
-      SUM(CASE WHEN a.status='present' THEN 1 ELSE 0 END) as present_count,
-      COUNT(a.id) as total_records
-      FROM students s LEFT JOIN attendance a ON a.studentId=s.id
-      WHERE s.instituteCode = ?
-      GROUP BY s.id ORDER BY s.id`).all(instituteCode);
-  }
-  return db.prepare(`SELECT s.id, s.firstName, s.lastName, s.instituteCode,
+function getAttendanceSummary(){
+  return db.prepare(`SELECT s.id, s.firstName, s.lastName,
     SUM(CASE WHEN a.status='present' THEN 1 ELSE 0 END) as present_count,
     COUNT(a.id) as total_records
     FROM students s LEFT JOIN attendance a ON a.studentId=s.id
@@ -154,7 +126,7 @@ function getAttendanceSummary(instituteCode = null){
 }
 
 module.exports = {
-  getUserByEmail, getAllUsers, getUserById, deleteUser, createDefaultAdminIfMissing, createUser,
-  createStudent, getAllStudents, getStudentsByInstitute, getStudentById, updateStudent, deleteStudent,
+  getUserByEmail, getAllUsers, createDefaultAdminIfMissing, createUser,
+  createStudent, getAllStudents, getStudentById, updateStudent, deleteStudent,
   recordAttendance, deleteAttendanceForStudentDate, getAttendanceByDate, getAttendance, getAttendanceSummary
 };

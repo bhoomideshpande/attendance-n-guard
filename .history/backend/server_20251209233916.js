@@ -441,40 +441,6 @@ app.get('/api/users', authMiddleware, (req, res) => {
   }
 });
 
-app.delete('/api/users/:id', authMiddleware, (req, res) => {
-  try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Access denied. Admin only.' });
-    }
-    
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ error: 'Invalid user ID' });
-    }
-    
-    const user = db.getUserById(id);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    // Prevent deleting yourself
-    if (user.email === req.user.email) {
-      return res.status(400).json({ error: 'Cannot delete your own account' });
-    }
-    
-    // Prevent deleting the default admin
-    if (user.email === 'admin@example.com') {
-      return res.status(400).json({ error: 'Cannot delete the default admin account' });
-    }
-    
-    db.deleteUser(id);
-    res.json({ ok: true, message: 'User deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting user:', error);
-    res.status(500).json({ error: 'Failed to delete user' });
-  }
-});
-
 // 404 handler for unknown routes
 app.use((req, res) => {
   res.status(404).json({ error: `Route ${req.method} ${req.path} not found` });

@@ -300,11 +300,6 @@ app.delete('/api/students/:id', authMiddleware, (req, res) => {
       return res.status(404).json({ error: 'Student not found' });
     }
     
-    // Staff can only delete students from their institute
-    if (req.user.role !== 'admin' && existing.instituteCode !== req.user.instituteCode) {
-      return res.status(403).json({ error: 'Access denied: Student belongs to a different institute' });
-    }
-    
     db.deleteStudent(id);
     res.json({ ok: true, message: 'Student deleted successfully' });
   } catch (error) {
@@ -438,40 +433,6 @@ app.get('/api/users', authMiddleware, (req, res) => {
   } catch (error) {
     console.error('Error fetching users:', error);
     res.status(500).json({ error: 'Failed to fetch users' });
-  }
-});
-
-app.delete('/api/users/:id', authMiddleware, (req, res) => {
-  try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Access denied. Admin only.' });
-    }
-    
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ error: 'Invalid user ID' });
-    }
-    
-    const user = db.getUserById(id);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    // Prevent deleting yourself
-    if (user.email === req.user.email) {
-      return res.status(400).json({ error: 'Cannot delete your own account' });
-    }
-    
-    // Prevent deleting the default admin
-    if (user.email === 'admin@example.com') {
-      return res.status(400).json({ error: 'Cannot delete the default admin account' });
-    }
-    
-    db.deleteUser(id);
-    res.json({ ok: true, message: 'User deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting user:', error);
-    res.status(500).json({ error: 'Failed to delete user' });
   }
 });
 

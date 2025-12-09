@@ -74,9 +74,7 @@ const NewStudent = () => {
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      // Extract year from institute code (e.g., NCC-2024-001 → 2024)
-      const yearMatch = formData.instituteCode.match(/\d{4}/);
-      const batch = yearMatch ? yearMatch[0] : new Date().getFullYear().toString();
+      const year = new Date().getFullYear();
       
       // Create FormData for multipart upload
       const submitData = new FormData();
@@ -90,7 +88,7 @@ const NewStudent = () => {
       submitData.append('email', formData.email);
       submitData.append('parentName', formData.parentName);
       submitData.append('instituteCode', formData.instituteCode);
-      submitData.append('batch', batch);
+      submitData.append('batch', year.toString());
       
       // Add photo if uploaded
       if (photoFiles.length > 0) {
@@ -111,7 +109,7 @@ const NewStudent = () => {
     <div className="min-h-screen bg-background">
       <FlagHeader />
       <Navigation />
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8 mt-[140px]">
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-foreground mb-2">New Student Admission</h1>

@@ -74,9 +74,7 @@ const NewStudent = () => {
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      // Extract year from institute code (e.g., NCC-2024-001 → 2024)
-      const yearMatch = formData.instituteCode.match(/\d{4}/);
-      const batch = yearMatch ? yearMatch[0] : new Date().getFullYear().toString();
+      const year = new Date().getFullYear();
       
       // Create FormData for multipart upload
       const submitData = new FormData();
@@ -90,7 +88,7 @@ const NewStudent = () => {
       submitData.append('email', formData.email);
       submitData.append('parentName', formData.parentName);
       submitData.append('instituteCode', formData.instituteCode);
-      submitData.append('batch', batch);
+      submitData.append('batch', year.toString());
       
       // Add photo if uploaded
       if (photoFiles.length > 0) {
@@ -300,18 +298,17 @@ const NewStudent = () => {
                     </div>
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-4">Uploaded Photo</h3>
-                    {photoPreview ? (
-                      <div className="w-32 h-32 rounded-lg overflow-hidden border">
+                    <h3 className="font-semibold mb-4">Uploaded Photos ({photos.length})</h3>
+                    <div className="grid grid-cols-3 gap-4">
+                      {photos.map((photo, index) => (
                         <img
-                          src={photoPreview}
-                          alt="Student photo"
-                          className="w-full h-full object-cover"
+                          key={index}
+                          src={photo}
+                          alt={`Photo ${index + 1}`}
+                          className="w-full aspect-square object-cover rounded-lg"
                         />
-                      </div>
-                    ) : (
-                      <p className="text-muted-foreground">No photo uploaded</p>
-                    )}
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}

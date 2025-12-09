@@ -39,15 +39,7 @@ db.prepare(`CREATE TABLE IF NOT EXISTS attendance (
 function getUserByEmail(email){ 
   return db.prepare('SELECT * FROM users WHERE email=?').get(email);
 }
-function getAllUsers(){ return db.prepare('SELECT id,name,email,role,instituteCode FROM users').all(); }
-
-function getUserById(id) {
-  return db.prepare('SELECT id,name,email,role,instituteCode FROM users WHERE id=?').get(id);
-}
-
-function deleteUser(id) {
-  return db.prepare('DELETE FROM users WHERE id=?').run(id);
-}
+function getAllUsers(){ return db.prepare('SELECT id,name,email,role FROM users').all(); }
 
 function createUser({ name, email, password, phone, instituteCode, role = 'user' }) {
   const hashedPassword = bcrypt.hashSync(password, 10);
@@ -154,7 +146,7 @@ function getAttendanceSummary(instituteCode = null){
 }
 
 module.exports = {
-  getUserByEmail, getAllUsers, getUserById, deleteUser, createDefaultAdminIfMissing, createUser,
+  getUserByEmail, getAllUsers, createDefaultAdminIfMissing, createUser,
   createStudent, getAllStudents, getStudentsByInstitute, getStudentById, updateStudent, deleteStudent,
   recordAttendance, deleteAttendanceForStudentDate, getAttendanceByDate, getAttendance, getAttendanceSummary
 };

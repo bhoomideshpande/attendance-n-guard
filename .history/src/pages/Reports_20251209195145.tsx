@@ -153,11 +153,7 @@ const Reports = () => {
             <CardTitle>Student Records ({filteredStudents.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              </div>
-            ) : filteredStudents.length === 0 ? (
+            {filteredStudents.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">No student records found. Add students to see reports.</p>
               </div>
@@ -180,7 +176,7 @@ const Reports = () => {
                       <TableCell className="font-medium">
                         {student.firstName} {student.lastName}
                       </TableCell>
-                      <TableCell>{student.instituteCode}</TableCell>
+                      <TableCell>{student.institute}</TableCell>
                       <TableCell>{student.batch}</TableCell>
                       <TableCell>{student.phone}</TableCell>
                       <TableCell>{student.email}</TableCell>

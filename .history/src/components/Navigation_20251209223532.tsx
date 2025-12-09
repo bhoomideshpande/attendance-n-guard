@@ -16,7 +16,7 @@ export const Navigation = ({ userRole = "user" }: NavigationProps) => {
 
   return (
     <>
-      <nav className="fixed top-[120px] left-0 right-0 z-40 bg-card border-b border-border shadow-sm">
+      <nav className="fixed top-[100px] left-0 right-0 z-40 bg-card border-b border-border shadow-sm">
         <div className="container mx-auto px-4">
           <div className="flex gap-1">
             {navItems.map((item) => (
@@ -34,7 +34,7 @@ export const Navigation = ({ userRole = "user" }: NavigationProps) => {
         </div>
       </nav>
       {/* Spacer to push content below fixed nav */}
-      <div className="h-[56px]"></div>
+      <div className="h-[48px]"></div>
     </>
   );
 };

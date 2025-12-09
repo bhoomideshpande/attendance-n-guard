@@ -46,58 +46,31 @@ const NewStudent = () => {
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files && files[0]) {
-      const file = files[0];
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        toast.error('Please upload an image file');
-        return;
-      }
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('Image size must be less than 5MB');
-        return;
-      }
-      setPhotoFiles([file]);
-      setPhotoPreview(URL.createObjectURL(file));
-    }
-  };
-
-  const removePhoto = () => {
-    setPhotoFiles([]);
-    if (photoPreview) {
-      URL.revokeObjectURL(photoPreview);
-      setPhotoPreview(null);
+    if (files) {
+      const newPhotos = Array.from(files).map((file) => URL.createObjectURL(file));
+      setPhotos([...photos, ...newPhotos].slice(0, 3));
     }
   };
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      // Extract year from institute code (e.g., NCC-2024-001 → 2024)
-      const yearMatch = formData.instituteCode.match(/\d{4}/);
-      const batch = yearMatch ? yearMatch[0] : new Date().getFullYear().toString();
+      const year = new Date().getFullYear();
+      const newStudent = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        dob: formData.dob,
+        gender: formData.gender,
+        nationality: formData.nationality,
+        address: formData.address,
+        phone: formData.phone,
+        email: formData.email,
+        parentName: formData.parentName,
+        instituteCode: formData.instituteCode,
+        batch: year.toString(),
+      };
       
-      // Create FormData for multipart upload
-      const submitData = new FormData();
-      submitData.append('firstName', formData.firstName);
-      submitData.append('lastName', formData.lastName);
-      submitData.append('dob', formData.dob);
-      submitData.append('gender', formData.gender);
-      submitData.append('nationality', formData.nationality);
-      submitData.append('address', formData.address);
-      submitData.append('phone', formData.phone);
-      submitData.append('email', formData.email);
-      submitData.append('parentName', formData.parentName);
-      submitData.append('instituteCode', formData.instituteCode);
-      submitData.append('batch', batch);
-      
-      // Add photo if uploaded
-      if (photoFiles.length > 0) {
-        submitData.append('photo', photoFiles[0]);
-      }
-      
-      const result = await studentsApi.createWithPhoto(submitData);
+      const result = await studentsApi.create(newStudent);
       toast.success(`Student admitted successfully! ID: ${result.id}`);
       navigate("/students");
     } catch (error: any) {
@@ -231,46 +204,34 @@ const NewStudent = () => {
                   <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
                     <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                     <p className="text-sm text-muted-foreground mb-4">
-                      Upload a clear photo of the student (front-facing)
+                      Upload 3 clear photos of the student (front-facing)
                     </p>
                     <Input
                       type="file"
                       accept="image/*"
+                      multiple
                       onChange={handlePhotoUpload}
                       className="max-w-xs mx-auto"
                     />
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Max file size: 5MB. Supported formats: JPG, PNG, GIF
-                    </p>
                   </div>
-                  
-                  {photoPreview ? (
-                    <div className="flex justify-center">
-                      <div className="relative w-48 h-48 rounded-lg overflow-hidden border-2 border-primary">
-                        <img 
-                          src={photoPreview} 
-                          alt="Student photo" 
-                          className="w-full h-full object-cover" 
-                        />
-                        <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1">
+                  <div className="grid grid-cols-3 gap-4">
+                    {photos.map((photo, index) => (
+                      <div key={index} className="relative aspect-square rounded-lg overflow-hidden border">
+                        <img src={photo} alt={`Photo ${index + 1}`} className="w-full h-full object-cover" />
+                        <div className="absolute top-2 right-2 bg-accent text-accent-foreground rounded-full p-1">
                           <Check className="w-4 h-4" />
                         </div>
-                        <button
-                          type="button"
-                          onClick={removePhoto}
-                          className="absolute top-2 left-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="flex justify-center">
-                      <div className="w-48 h-48 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-muted-foreground">
-                        No photo uploaded
+                    ))}
+                    {[...Array(3 - photos.length)].map((_, index) => (
+                      <div
+                        key={`empty-${index}`}
+                        className="aspect-square rounded-lg border-2 border-dashed border-border flex items-center justify-center text-muted-foreground"
+                      >
+                        Photo {photos.length + index + 1}
                       </div>
-                    </div>
-                  )}
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -300,18 +261,17 @@ const NewStudent = () => {
                     </div>
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-4">Uploaded Photo</h3>
-                    {photoPreview ? (
-                      <div className="w-32 h-32 rounded-lg overflow-hidden border">
+                    <h3 className="font-semibold mb-4">Uploaded Photos ({photos.length})</h3>
+                    <div className="grid grid-cols-3 gap-4">
+                      {photos.map((photo, index) => (
                         <img
-                          src={photoPreview}
-                          alt="Student photo"
-                          className="w-full h-full object-cover"
+                          key={index}
+                          src={photo}
+                          alt={`Photo ${index + 1}`}
+                          className="w-full aspect-square object-cover rounded-lg"
                         />
-                      </div>
-                    ) : (
-                      <p className="text-muted-foreground">No photo uploaded</p>
-                    )}
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
