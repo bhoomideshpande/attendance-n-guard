@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -55,7 +56,7 @@ function authMiddleware(req, res, next) {
 }
 
 // Auth routes
-app.post('/api/auth/register', (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
   const { firstName, lastName, email, password, confirmPassword, phone, instituteCode } = req.body;
   
   // Validation
@@ -69,16 +70,16 @@ app.post('/api/auth/register', (req, res) => {
     return res.status(400).json({ error: 'Password must be at least 6 characters' });
   }
   
-  // Check if user already exists
-  const existingUser = db.getUserByEmail(email);
-  if (existingUser) {
-    return res.status(409).json({ error: 'User with this email already exists' });
-  }
-  
   try {
+    // Check if user already exists
+    const existingUser = await db.getUserByEmail(email);
+    if (existingUser) {
+      return res.status(409).json({ error: 'User with this email already exists' });
+    }
+    
     const name = `${firstName || ''} ${lastName || ''}`.trim();
-    const userId = db.createUser({ name, email, password, phone, instituteCode });
-    const user = db.getUserByEmail(email);
+    const userId = await db.createUser({ name, email, password, phone, instituteCode });
+    const user = await db.getUserByEmail(email);
     const token = generateToken(user);
     res.status(201).json({ 
       message: 'Registration successful',
@@ -97,28 +98,33 @@ app.post('/api/auth/register', (req, res) => {
   }
 });
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
   
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
   }
   
-  const user = db.getUserByEmail(email);
-  if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-  const ok = bcrypt.compareSync(password, user.password);
-  if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
-  const token = generateToken(user);
-  res.json({ 
-    token, 
-    user: { 
-      id: user.id, 
-      name: user.name, 
-      email: user.email, 
-      role: user.role,
-      instituteCode: user.instituteCode || null
-    } 
-  });
+  try {
+    const user = await db.getUserByEmail(email);
+    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+    const ok = bcrypt.compareSync(password, user.password);
+    if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+    const token = generateToken(user);
+    res.json({ 
+      token, 
+      user: { 
+        id: user.id, 
+        name: user.name, 
+        email: user.email, 
+        role: user.role,
+        instituteCode: user.instituteCode || null
+      } 
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Login failed. Please try again.' });
+  }
 });
 
 // Create default admin if missing
@@ -179,20 +185,20 @@ app.use((err, req, res, next) => {
 });
 
 // Students CRUD
-app.get('/api/students', authMiddleware, (req, res) => {
+app.get('/api/students', authMiddleware, async (req, res) => {
   try {
     // Get user's institute from the token
     const userEmail = req.user.email;
-    const user = db.getUserByEmail(userEmail);
+    const user = await db.getUserByEmail(userEmail);
     
     let students;
     // Admin can see all students, staff can only see their institute's students
     if (req.user.role === 'admin') {
-      students = db.getAllStudents();
+      students = await db.getAllStudents();
     } else if (user && user.instituteCode) {
-      students = db.getStudentsByInstitute(user.instituteCode);
+      students = await db.getStudentsByInstitute(user.instituteCode);
     } else {
-      students = db.getAllStudents(); // Fallback if no institute set
+      students = await db.getAllStudents(); // Fallback if no institute set
     }
     
     res.json(students);
@@ -202,13 +208,13 @@ app.get('/api/students', authMiddleware, (req, res) => {
   }
 });
 
-app.get('/api/students/:id', authMiddleware, (req, res) => {
+app.get('/api/students/:id', authMiddleware, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ error: 'Invalid student ID' });
     }
-    const s = db.getStudentById(id);
+    const s = await db.getStudentById(id);
     if (!s) return res.status(404).json({ error: 'Student not found' });
     
     // Staff can only view students from their institute
@@ -223,7 +229,7 @@ app.get('/api/students/:id', authMiddleware, (req, res) => {
   }
 });
 
-app.post('/api/students', authMiddleware, upload.single('photo'), (req, res) => {
+app.post('/api/students', authMiddleware, upload.single('photo'), async (req, res) => {
   try {
     const data = req.body;
     
@@ -239,7 +245,7 @@ app.post('/api/students', authMiddleware, upload.single('photo'), (req, res) => 
     }
     
     if (req.file) data.photo = '/uploads/' + req.file.filename;
-    const id = db.createStudent(data);
+    const id = await db.createStudent(data);
     res.status(201).json({ id, message: 'Student created successfully' });
   } catch (error) {
     console.error('Error creating student:', error);
@@ -247,7 +253,7 @@ app.post('/api/students', authMiddleware, upload.single('photo'), (req, res) => 
   }
 });
 
-app.put('/api/students/:id', authMiddleware, upload.single('photo'), (req, res) => {
+app.put('/api/students/:id', authMiddleware, upload.single('photo'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -255,7 +261,7 @@ app.put('/api/students/:id', authMiddleware, upload.single('photo'), (req, res) 
     }
     
     // Check if student exists
-    const existing = db.getStudentById(id);
+    const existing = await db.getStudentById(id);
     if (!existing) {
       return res.status(404).json({ error: 'Student not found' });
     }
@@ -279,7 +285,7 @@ app.put('/api/students/:id', authMiddleware, upload.single('photo'), (req, res) 
     }
     
     if (req.file) data.photo = '/uploads/' + req.file.filename;
-    db.updateStudent(id, data);
+    await db.updateStudent(id, data);
     res.json({ ok: true, message: 'Student updated successfully' });
   } catch (error) {
     console.error('Error updating student:', error);
@@ -287,7 +293,7 @@ app.put('/api/students/:id', authMiddleware, upload.single('photo'), (req, res) 
   }
 });
 
-app.delete('/api/students/:id', authMiddleware, (req, res) => {
+app.delete('/api/students/:id', authMiddleware, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -295,7 +301,7 @@ app.delete('/api/students/:id', authMiddleware, (req, res) => {
     }
     
     // Check if student exists
-    const existing = db.getStudentById(id);
+    const existing = await db.getStudentById(id);
     if (!existing) {
       return res.status(404).json({ error: 'Student not found' });
     }
@@ -305,7 +311,7 @@ app.delete('/api/students/:id', authMiddleware, (req, res) => {
       return res.status(403).json({ error: 'Access denied: Student belongs to a different institute' });
     }
     
-    db.deleteStudent(id);
+    await db.deleteStudent(id);
     res.json({ ok: true, message: 'Student deleted successfully' });
   } catch (error) {
     console.error('Error deleting student:', error);
@@ -314,7 +320,7 @@ app.delete('/api/students/:id', authMiddleware, (req, res) => {
 });
 
 // Attendance
-app.post('/api/attendance', authMiddleware, (req, res) => {
+app.post('/api/attendance', authMiddleware, async (req, res) => {
   try {
     const { studentId, date, status } = req.body;
     
@@ -330,12 +336,12 @@ app.post('/api/attendance', authMiddleware, (req, res) => {
     }
     
     // Check if student exists
-    const student = db.getStudentById(parseInt(studentId));
+    const student = await db.getStudentById(parseInt(studentId));
     if (!student) {
       return res.status(404).json({ error: 'Student not found' });
     }
     
-    const id = db.recordAttendance({ studentId: parseInt(studentId), date, status: status.toLowerCase() });
+    const id = await db.recordAttendance({ studentId: parseInt(studentId), date, status: status.toLowerCase() });
     res.json({ id, message: 'Attendance recorded successfully' });
   } catch (error) {
     console.error('Error recording attendance:', error);
@@ -343,7 +349,7 @@ app.post('/api/attendance', authMiddleware, (req, res) => {
   }
 });
 
-app.post('/api/attendance/bulk', authMiddleware, (req, res) => {
+app.post('/api/attendance/bulk', authMiddleware, async (req, res) => {
   try {
     const { date, records } = req.body;
     
@@ -367,8 +373,8 @@ app.post('/api/attendance/bulk', authMiddleware, (req, res) => {
     let count = 0;
     for (const record of records) {
       // Delete existing record for this student on this date, then insert new one
-      db.deleteAttendanceForStudentDate(parseInt(record.studentId), date);
-      db.recordAttendance({ 
+      await db.deleteAttendanceForStudentDate(parseInt(record.studentId), date);
+      await db.recordAttendance({ 
         studentId: parseInt(record.studentId), 
         date, 
         status: record.status.toLowerCase() 
@@ -383,7 +389,7 @@ app.post('/api/attendance/bulk', authMiddleware, (req, res) => {
   }
 });
 
-app.get('/api/attendance', authMiddleware, (req, res) => {
+app.get('/api/attendance', authMiddleware, async (req, res) => {
   try {
     const { from, to, date } = req.query;
     const user = req.user;
@@ -394,7 +400,7 @@ app.get('/api/attendance', authMiddleware, (req, res) => {
       if (!validateDate(date)) {
         return res.status(400).json({ error: 'Invalid date format' });
       }
-      const records = db.getAttendanceByDate(date, instituteCode);
+      const records = await db.getAttendanceByDate(date, instituteCode);
       return res.json(records);
     }
     
@@ -405,7 +411,7 @@ app.get('/api/attendance', authMiddleware, (req, res) => {
       return res.status(400).json({ error: 'Invalid "to" date format' });
     }
     
-    const records = db.getAttendance(from, to, instituteCode);
+    const records = await db.getAttendance(from, to, instituteCode);
     res.json(records);
   } catch (error) {
     console.error('Error fetching attendance:', error);
@@ -414,12 +420,12 @@ app.get('/api/attendance', authMiddleware, (req, res) => {
 });
 
 // Reports - simple aggregated report
-app.get('/api/reports/summary', authMiddleware, (req, res) => {
+app.get('/api/reports/summary', authMiddleware, async (req, res) => {
   try {
     const user = req.user;
     // Staff can only see reports for their institute
     const instituteCode = user.role === 'admin' ? null : user.instituteCode;
-    const report = db.getAttendanceSummary(instituteCode);
+    const report = await db.getAttendanceSummary(instituteCode);
     res.json(report);
   } catch (error) {
     console.error('Error generating report:', error);
@@ -428,12 +434,12 @@ app.get('/api/reports/summary', authMiddleware, (req, res) => {
 });
 
 // Users - for admin
-app.get('/api/users', authMiddleware, (req, res) => {
+app.get('/api/users', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied. Admin only.' });
     }
-    const users = db.getAllUsers();
+    const users = await db.getAllUsers();
     res.json(users);
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -441,7 +447,7 @@ app.get('/api/users', authMiddleware, (req, res) => {
   }
 });
 
-app.delete('/api/users/:id', authMiddleware, (req, res) => {
+app.delete('/api/users/:id', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied. Admin only.' });
@@ -452,7 +458,7 @@ app.delete('/api/users/:id', authMiddleware, (req, res) => {
       return res.status(400).json({ error: 'Invalid user ID' });
     }
     
-    const user = db.getUserById(id);
+    const user = await db.getUserById(id);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -467,7 +473,7 @@ app.delete('/api/users/:id', authMiddleware, (req, res) => {
       return res.status(400).json({ error: 'Cannot delete the default admin account' });
     }
     
-    db.deleteUser(id);
+    await db.deleteUser(id);
     res.json({ ok: true, message: 'User deleted successfully' });
   } catch (error) {
     console.error('Error deleting user:', error);
